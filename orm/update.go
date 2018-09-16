@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/go-pg/pg/internal"
-	"github.com/go-pg/pg/types"
+	"github.com/rueian/pg/internal"
+	"github.com/rueian/pg/types"
 )
 
 func Update(db DB, model interface{}) error {

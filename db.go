@@ -6,9 +6,9 @@ import (
 	"io"
 	"time"
 
-	"github.com/go-pg/pg/internal"
-	"github.com/go-pg/pg/internal/pool"
-	"github.com/go-pg/pg/orm"
+	"github.com/rueian/pg/internal"
+	"github.com/rueian/pg/internal/pool"
+	"github.com/rueian/pg/orm"
 	"go.opencensus.io/trace"
 )
 

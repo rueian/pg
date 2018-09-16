@@ -3,7 +3,7 @@ package orm_test
 import (
 	"testing"
 
-	"github.com/go-pg/pg/orm"
+	"github.com/rueian/pg/orm"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

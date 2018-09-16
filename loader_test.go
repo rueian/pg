@@ -3,8 +3,8 @@ package pg_test
 import (
 	"errors"
 
-	"github.com/go-pg/pg"
-	"github.com/go-pg/pg/orm"
+	"github.com/rueian/pg"
+	"github.com/rueian/pg/orm"
 
 	. "gopkg.in/check.v1"
 )

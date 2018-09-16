@@ -3,7 +3,7 @@ package pg_test
 import (
 	"fmt"
 
-	"github.com/go-pg/pg/orm"
+	"github.com/rueian/pg/orm"
 )
 
 type InventoryItem struct {

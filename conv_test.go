@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-pg/pg"
-	"github.com/go-pg/pg/orm"
-	"github.com/go-pg/pg/types"
+	"github.com/rueian/pg"
+	"github.com/rueian/pg/orm"
+	"github.com/rueian/pg/types"
 )
 
 type JSONMap map[string]interface{}

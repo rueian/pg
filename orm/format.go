@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-pg/pg/internal"
-	"github.com/go-pg/pg/internal/parser"
-	"github.com/go-pg/pg/types"
+	"github.com/rueian/pg/internal"
+	"github.com/rueian/pg/internal/parser"
+	"github.com/rueian/pg/types"
 )
 
 var formatter Formatter
