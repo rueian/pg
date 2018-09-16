@@ -8,6 +8,7 @@ import (
 	"github.com/go-pg/pg/internal"
 	"github.com/go-pg/pg/internal/pool"
 	"github.com/go-pg/pg/orm"
+	"go.opencensus.io/trace"
 )
 
 var errStmtClosed = errors.New("pg: statement is closed")
@@ -219,15 +220,28 @@ func prepare(db *DB, cn *pool.Conn, q string) (*Stmt, error) {
 	return stmt, nil
 }
 
-func (stmt *Stmt) extQuery(cn *pool.Conn, name string, params ...interface{}) (orm.Result, error) {
-	err := cn.WithWriter(stmt.db.opt.WriteTimeout, func(wb *pool.WriteBuffer) error {
+func (stmt *Stmt) extQuery(cn *pool.Conn, name string, params ...interface{}) (res orm.Result, err error) {
+	_, span := trace.StartSpan(stmt.db.Context(), "sql:stmt")
+	defer func() {
+		setSpanStatus(span, err)
+		attrs := []trace.Attribute{trace.StringAttribute("sql.name", name)}
+		if res != nil {
+			attrs = append(attrs,
+				trace.Int64Attribute("sql.affected", int64(res.RowsAffected())),
+				trace.Int64Attribute("sql.returned", int64(res.RowsReturned())),
+			)
+		}
+		span.AddAttributes(attrs...)
+		span.End()
+	}()
+
+	err = cn.WithWriter(stmt.db.opt.WriteTimeout, func(wb *pool.WriteBuffer) error {
 		return writeBindExecuteMsg(wb, name, params...)
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	var res orm.Result
 	err = cn.WithReader(stmt.db.opt.ReadTimeout, func(rd *pool.Reader) error {
 		res, err = readExtQuery(rd)
 		return err
@@ -241,15 +255,28 @@ func (stmt *Stmt) extQuery(cn *pool.Conn, name string, params ...interface{}) (o
 
 func (stmt *Stmt) extQueryData(
 	cn *pool.Conn, name string, model interface{}, columns [][]byte, params ...interface{},
-) (orm.Result, error) {
-	err := cn.WithWriter(stmt.db.opt.WriteTimeout, func(wb *pool.WriteBuffer) error {
+) (res orm.Result, err error) {
+	_, span := trace.StartSpan(stmt.db.Context(), "sql:stmt")
+	defer func() {
+		setSpanStatus(span, err)
+		attrs := []trace.Attribute{trace.StringAttribute("sql.name", name)}
+		if res != nil {
+			attrs = append(attrs,
+				trace.Int64Attribute("sql.affected", int64(res.RowsAffected())),
+				trace.Int64Attribute("sql.returned", int64(res.RowsReturned())),
+			)
+		}
+		span.AddAttributes(attrs...)
+		span.End()
+	}()
+
+	err = cn.WithWriter(stmt.db.opt.WriteTimeout, func(wb *pool.WriteBuffer) error {
 		return writeBindExecuteMsg(wb, name, params...)
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	var res orm.Result
 	err = cn.WithReader(stmt.db.opt.ReadTimeout, func(rd *pool.Reader) error {
 		res, err = readExtQueryData(rd, model, columns)
 		return err

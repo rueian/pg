@@ -9,6 +9,7 @@ import (
 	"github.com/go-pg/pg/internal"
 	"github.com/go-pg/pg/internal/pool"
 	"github.com/go-pg/pg/orm"
+	"go.opencensus.io/trace"
 )
 
 // Connect connects to a database using provided options.
@@ -476,15 +477,29 @@ func (db *DB) cancelRequest(processId, secretKey int32) error {
 
 func (db *DB) simpleQuery(
 	cn *pool.Conn, query interface{}, params ...interface{},
-) (orm.Result, error) {
-	err := cn.WithWriter(db.opt.WriteTimeout, func(wb *pool.WriteBuffer) error {
+) (res orm.Result, err error) {
+	_, span := trace.StartSpan(db.Context(), "sql:exec")
+	defer func() {
+		setSpanStatus(span, err)
+		formatted, _ := appendQuery(nil, db, query, params)
+		attrs := []trace.Attribute{trace.StringAttribute("sql.query", string(formatted))}
+		if res != nil {
+			attrs = append(attrs,
+				trace.Int64Attribute("sql.affected", int64(res.RowsAffected())),
+				trace.Int64Attribute("sql.returned", int64(res.RowsReturned())),
+			)
+		}
+		span.AddAttributes(attrs...)
+		span.End()
+	}()
+
+	err = cn.WithWriter(db.opt.WriteTimeout, func(wb *pool.WriteBuffer) error {
 		return writeQueryMsg(wb, db, query, params...)
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	var res orm.Result
 	err = cn.WithReader(db.opt.ReadTimeout, func(rd *pool.Reader) error {
 		res, err = readSimpleQuery(rd)
 		return err
@@ -498,15 +513,29 @@ func (db *DB) simpleQuery(
 
 func (db *DB) simpleQueryData(
 	cn *pool.Conn, model, query interface{}, params ...interface{},
-) (orm.Result, error) {
-	err := cn.WithWriter(db.opt.WriteTimeout, func(wb *pool.WriteBuffer) error {
+) (res orm.Result, err error) {
+	_, span := trace.StartSpan(db.Context(), "sql:query")
+	defer func() {
+		setSpanStatus(span, err)
+		formatted, _ := appendQuery(nil, db, query, params)
+		attrs := []trace.Attribute{trace.StringAttribute("sql.query", string(formatted))}
+		if res != nil {
+			attrs = append(attrs,
+				trace.Int64Attribute("sql.affected", int64(res.RowsAffected())),
+				trace.Int64Attribute("sql.returned", int64(res.RowsReturned())),
+			)
+		}
+		span.AddAttributes(attrs...)
+		span.End()
+	}()
+
+	err = cn.WithWriter(db.opt.WriteTimeout, func(wb *pool.WriteBuffer) error {
 		return writeQueryMsg(wb, db, query, params...)
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	var res orm.Result
 	err = cn.WithReader(db.opt.ReadTimeout, func(rd *pool.Reader) error {
 		res, err = readSimpleQueryData(rd, model)
 		return err
@@ -516,4 +545,26 @@ func (db *DB) simpleQueryData(
 	}
 
 	return res, nil
+}
+
+func setSpanStatus(span *trace.Span, err error) {
+	var status trace.Status
+	switch err {
+	case nil:
+		status.Code = trace.StatusCodeOK
+		span.SetStatus(status)
+		return
+	case context.Canceled:
+		status.Code = trace.StatusCodeCancelled
+	case context.DeadlineExceeded:
+		status.Code = trace.StatusCodeDeadlineExceeded
+	case ErrNoRows:
+		status.Code = trace.StatusCodeNotFound
+	case errTxDone, errStmtClosed, errListenerClosed:
+		status.Code = trace.StatusCodeFailedPrecondition
+	default:
+		status.Code = trace.StatusCodeUnknown
+	}
+	status.Message = err.Error()
+	span.SetStatus(status)
 }
